@@ -2088,6 +2088,10 @@ func (h *APIHandler) handleSSE(w http.ResponseWriter, r *http.Request) {
 	keepalive := time.NewTicker(15 * time.Second)
 	defer keepalive.Stop()
 
+	// Tail .events.jsonl for town events
+	eventsCh := make(chan string, 64)
+	go h.tailEventsJSONL(ctx, eventsCh)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -2095,12 +2099,71 @@ func (h *APIHandler) handleSSE(w http.ResponseWriter, r *http.Request) {
 		case <-keepalive.C:
 			fmt.Fprintf(w, ": keepalive\n\n")
 			flusher.Flush()
+		case line := <-eventsCh:
+			fmt.Fprintf(w, "event: town-event\ndata: %s\n\n", line)
+			flusher.Flush()
 		case <-ticker.C:
 			hash := h.computeDashboardHash(ctx)
 			if hash != "" && hash != lastHash {
 				lastHash = hash
 				fmt.Fprintf(w, "event: dashboard-update\ndata: %s\n\n", hash)
 				flusher.Flush()
+			}
+		}
+	}
+}
+
+// tailEventsJSONL tails GT_ROOT/.events.jsonl and sends new lines to the channel.
+func (h *APIHandler) tailEventsJSONL(ctx context.Context, ch chan<- string) {
+	gtRoot := os.Getenv("GT_ROOT")
+	if gtRoot == "" {
+		gtRoot = os.ExpandEnv("$HOME/gt")
+	}
+	eventsFile := gtRoot + "/.events.jsonl"
+
+	f, err := os.Open(eventsFile)
+	if err != nil {
+		log.Printf("town: cannot open events file %s: %v", eventsFile, err)
+		return
+	}
+	defer f.Close()
+
+	// Seek to end — we only want new events
+	if _, err := f.Seek(0, 2); err != nil {
+		log.Printf("town: seek failed: %v", err)
+		return
+	}
+
+	buf := make([]byte, 4096)
+	var partial string
+
+	pollTicker := time.NewTicker(500 * time.Millisecond)
+	defer pollTicker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-pollTicker.C:
+			n, readErr := f.Read(buf)
+			if n > 0 {
+				data := partial + string(buf[:n])
+				lines := strings.Split(data, "\n")
+				// Last element may be partial (no trailing newline)
+				partial = lines[len(lines)-1]
+				for _, line := range lines[:len(lines)-1] {
+					line = strings.TrimSpace(line)
+					if line != "" {
+						select {
+						case ch <- line:
+						default:
+							// Drop if channel full
+						}
+					}
+				}
+			}
+			if readErr != nil && readErr.Error() != "EOF" {
+				return
 			}
 		}
 	}

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="dashboard-token" content="{{.CSRFToken}}">
+    <title>Gas Town</title>
+    <link rel="stylesheet" href="/static/town/town.css">
+</head>
+<body>
+    <div id="town-container">
+        <canvas id="town-canvas"></canvas>
+        <div id="event-log">
+            <div class="log-header">Event Log</div>
+            <div id="log-entries"></div>
+        </div>
+        <div id="status-popup" class="popup hidden"></div>
+        <div id="command-panel" class="popup hidden">
+            <div class="cmd-header">Mayor's Orders</div>
+            <div id="cmd-output"></div>
+            <div class="cmd-input-row">
+                <span class="cmd-prompt">&gt;</span>
+                <input type="text" id="cmd-input" placeholder="gt command..." autocomplete="off">
+            </div>
+        </div>
+    </div>
+    <script>window.__TOWN_STATE__ = {{.InitialStateJSON}};</script>
+    <script src="/static/town/engine.js"></script>
+    <script src="/static/town/characters.js"></script>
+    <script src="/static/town/events-map.js"></script>
+    <script src="/static/town/interaction.js"></script>
+    <script src="/static/town/town.js"></script>
+</body>
+</html>
