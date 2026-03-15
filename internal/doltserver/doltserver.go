@@ -1442,6 +1442,7 @@ func Start(townRoot string) error {
 	}
 	args := []string{"sql-server", "--config", configPath}
 	cmd := exec.Command("dolt", args...)
+	cmd.Dir = config.DataDir
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
 
