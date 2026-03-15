@@ -368,9 +368,15 @@ func NewDashboardMux(fetcher ConvoyFetcher, webCfg *config.WebTimeoutsConfig) (h
 	}
 	staticHandler := http.FileServer(http.FS(staticFS))
 
+	townHandler, err := NewTownHandler(fetcher, fetchTimeout, csrfToken)
+	if err != nil {
+		return nil, err
+	}
+
 	mux := http.NewServeMux()
 	mux.Handle("/api/", apiHandler)
 	mux.Handle("/static/", http.StripPrefix("/static/", staticHandler))
+	mux.Handle("/town", townHandler)
 	mux.Handle("/", convoyHandler)
 
 	return mux, nil
